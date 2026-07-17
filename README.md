@@ -10,7 +10,9 @@ O pipeline de processamento do recomendador segue três etapas principais:
 
 1. **Extração de Embeddings (Assinatura Visual):** Utilizamos a rede neural profunda **MobileNetV2** pré-treinada no dataset *ImageNet*. Removemos a última camada de classificação para utilizar o modelo como um extrator de características de alto nível, transformando qualquer imagem de entrada em um vetor numérico unidimensional de 1280 dimensões (representando características espaciais, texturas e cores).
 2. **Espaço Vetorial de Características:** Cada imagem do catálogo é representada como uma "seta" direcionada em um espaço multidimensional.
-3. **Métrica de Similaridade:** O sistema calcula o ângulo entre o vetor da imagem de busca e os vetores de todo o catálogo. Quanto menor o ângulo entre duas setas, mais parecido é o aspecto visual delas. Esse cálculo é quantificado usando a **Similaridade de Cosseno**.
+3. **Métrica de Similaridade:** O sistema calcula o ângulo entre o vetor da imagem de busca e os vetores de todo o catálogo. Quanto menor o ângulo entre duas setas, mais parecido é o aspecto visual delas. Esse cálculo é quantificado usando a **Similaridade de Cosseno**:
+
+$$Similaridade = \cos(\theta) = \frac{\mathbf{A} \cdot \mathbf{B}}{\|\mathbf{A}\| \|\mathbf{B}\|}$$
 
 ---
 
@@ -41,8 +43,18 @@ O projeto foi dividido de forma modular e lógica no notebook para facilitar o e
 1. Baixe o arquivo `.ipynb` deste repositório.
 2. Abra o [Google Colab](https://colab.research.google.com/) e faça o upload do notebook.
 3. Execute as células em ordem sequencial.
-4. *(Opcional)* O próprio script contém uma célula que baixa automaticamente um conjunto mínimo de imagens públicas (relógios, camisetas, calçados) para que você possa testar o funcionamento imediatamente sem precisar subir arquivos manuais.
+4. *(Opcional)* O próprio script contém uma célula que baixa automaticamente um conjunto mínimo de imagens públicas (relógios, campsites, calçados) para que você possa testar o funcionamento imediatamente sem precisar subir arquivos manuais.
 
 ---
 
-> **Nota Técnica sobre o Comportamento:** Como o extrator utilizado é genérico (treinado para objetos do dia a dia), o modelo é altamente sensível a blocos dominantes de cores e contornos geométricos. Em cenários reais de e-commerce, é recomendável aplicar um filtro prévio por categoria (ex: buscar calçados apenas na subpasta de calçados) ou realizar o *fine-tuning* da rede em um dataset de moda específico (como o *Fashion MNIST*)
+## 🚀 Próximos Passos & Sugestão de Atualização: Escalando com FAISS
+
+Atualmente, o projeto utiliza a função `cosine_similarity` do *Scikit-Learn* para realizar a busca linear (Força Bruta / $O(N)$) varrendo todo o catálogo. Embora essa abordagem seja excelente e precisa para datasets pequenos e médios, ela gera gargalos de latência em cenários de produção com milhares ou milhões de imagens.
+
+### Proposta de Evolução: **FAISS (Facebook AI Similarity Search)**
+Como melhoria futura de arquitetura, propõe-se substituir a busca linear pelo **FAISS**, uma biblioteca de código aberto desenvolvida pelo time de pesquisa de IA do Facebook para busca rápida de vetores densos em grande escala.
+
+* **O que muda na arquitetura?** 
+  Em vez de comparar a busca com cada imagem individualmente, os vetores de características gerados pela *MobileNetV2* passam a ser normalizados (L2) e adicionados a um índice indexado do FAISS (como `IndexFlatIP`).
+* **Qual o benefício?**
+  Utilizando algoritmos de **Vizinhos Próximos Aproximados (ANN)**, o FAISS agrupa vetores semelhantes em clusters. Em grandes produções, o tempo de resposta da recomendação cai de segundos para poucos **milissegundos**, permitindo escalar o catálogo para milhões de produtos com eficiência máxima de hardware e sem perda perceptível de qualidade na similaridade.
